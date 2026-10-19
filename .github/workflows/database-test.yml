@@ -113,4 +113,5 @@ jobs:
         run: |
           python -m pytest \
             tests/test_neon_integration.py \
+            tests/test_invitation_postgres.py \
             -v
