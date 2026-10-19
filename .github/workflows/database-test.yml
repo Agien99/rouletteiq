@@ -77,9 +77,9 @@ jobs:
             -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           DECLARE
-              table_name TEXT;
+              v_table_name TEXT;
           BEGIN
-              FOREACH table_name IN ARRAY ARRAY[
+              FOREACH v_table_name IN ARRAY ARRAY[
                   'users',
                   'auth_identities',
                   'auth_sessions',
@@ -88,10 +88,10 @@ jobs:
               ]
               LOOP
                   IF to_regclass(
-                      'public.' || table_name
+                      'public.' || v_table_name
                   ) IS NULL THEN
                       RAISE EXCEPTION
-                          'Missing table: %', table_name;
+                          'Missing table: %', v_table_name;
                   END IF;
               END LOOP;
 
