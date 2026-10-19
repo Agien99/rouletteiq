@@ -1,4 +1,4 @@
-name: RouletteIQ Database Integration
+﻿name: RouletteIQ Database Integration
 
 on:
   pull_request:
@@ -63,6 +63,51 @@ jobs:
             -d rouletteiq_test \
             -v ON_ERROR_STOP=1 \
             -f database/init.sql
+
+
+      - name: Verify authentication schema
+        env:
+          PGPASSWORD: rouletteiq_test_password
+        run: |
+          psql \
+            -h 127.0.0.1 \
+            -p 5432 \
+            -U rouletteiq_test \
+            -d rouletteiq_test \
+            -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+              table_name TEXT;
+          BEGIN
+              FOREACH table_name IN ARRAY ARRAY[
+                  'users',
+                  'auth_identities',
+                  'auth_sessions',
+                  'user_invitations',
+                  'password_reset_tokens'
+              ]
+              LOOP
+                  IF to_regclass(
+                      'public.' || table_name
+                  ) IS NULL THEN
+                      RAISE EXCEPTION
+                          'Missing table: %', table_name;
+                  END IF;
+              END LOOP;
+
+              IF NOT EXISTS (
+                  SELECT 1
+                  FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'sessions'
+                    AND column_name = 'user_id'
+              ) THEN
+                  RAISE EXCEPTION
+                      'Missing sessions.user_id column';
+              END IF;
+          END;
+          $$;
+          SQL
 
       - name: Run database integration tests
         run: |

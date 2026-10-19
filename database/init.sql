@@ -97,4 +97,127 @@ CREATE INDEX IF NOT EXISTS idx_prediction_items_run
 CREATE INDEX IF NOT EXISTS idx_model_metrics_version
     ON public.model_metrics(model_version_id);
 
+-- ==========================================
+-- Phase 11A: Authentication Foundation
+-- ==========================================
+
+-- 1. User accounts
+
+CREATE TABLE IF NOT EXISTS public.users (
+    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name VARCHAR(150) NOT NULL,
+    email VARCHAR(254) NOT NULL,
+    password_hash TEXT,
+    role VARCHAR(20) NOT NULL DEFAULT 'user'
+        CHECK (role IN ('admin', 'user')),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    email_verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT users_email_not_blank
+        CHECK (length(trim(email)) > 0),
+    CONSTRAINT users_email_normalized
+        CHECK (email = lower(trim(email)))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email
+    ON public.users(email);
+
+
+-- 2. Linked authentication providers
+
+CREATE TABLE IF NOT EXISTS public.auth_identities (
+    identity_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL
+        REFERENCES public.users(user_id)
+        ON DELETE CASCADE,
+    provider VARCHAR(30) NOT NULL
+        CHECK (provider IN ('google')),
+    provider_subject VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider, provider_subject),
+    UNIQUE(user_id, provider)
+);
+
+
+-- 3. Login sessions
+
+CREATE TABLE IF NOT EXISTS public.auth_sessions (
+    auth_session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL
+        REFERENCES public.users(user_id)
+        ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    last_used_at TIMESTAMPTZ,
+    CHECK (expires_at > created_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user
+    ON public.auth_sessions(user_id);
+
+
+-- 4. Private registration invitations
+
+CREATE TABLE IF NOT EXISTS public.user_invitations (
+    invitation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(254) NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    invited_by UUID NOT NULL
+        REFERENCES public.users(user_id),
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_at TIMESTAMPTZ,
+    accepted_by UUID
+        REFERENCES public.users(user_id),
+    revoked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (email = lower(trim(email))),
+    CHECK (expires_at > created_at),
+    CHECK (
+        accepted_at IS NULL
+        OR accepted_by IS NOT NULL
+    ),
+    CHECK (
+        NOT (
+            accepted_at IS NOT NULL
+            AND revoked_at IS NOT NULL
+        )
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_invitations_email
+    ON public.user_invitations(email);
+
+
+-- 5. Password reset tokens
+
+CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+    reset_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL
+        REFERENCES public.users(user_id)
+        ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (expires_at > created_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_user
+    ON public.password_reset_tokens(user_id);
+
+
+-- 6. Associate roulette sessions with users
+-- Temporarily nullable for legacy integration tests.
+-- Must become NOT NULL before public deployment.
+
+ALTER TABLE public.sessions
+    ADD COLUMN IF NOT EXISTS user_id UUID
+        REFERENCES public.users(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user
+    ON public.sessions(user_id);
+
 COMMIT;
