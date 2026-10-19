@@ -4,3 +4,4 @@ xgboost==3.0.5
 psycopg[binary]
 python-dotenv
 fastapi[standard]==0.141.1
+argon2-cffi==25.1.0

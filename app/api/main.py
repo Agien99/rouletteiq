@@ -1,3 +1,6 @@
+from app.api.routers.auth import (
+    router as auth_router,
+)
 from fastapi import FastAPI
 from fastapi.middleware.cors import (
     CORSMiddleware,
@@ -73,6 +76,10 @@ register_exception_handlers(app)
 
 app.include_router(
     health_router
+)
+
+app.include_router(
+    auth_router
 )
 
 app.include_router(
