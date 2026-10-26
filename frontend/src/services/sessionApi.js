@@ -17,13 +17,6 @@ async function apiRequest(
     response = await fetch(
       `${apiConfig.baseUrl}${path}`,
       {
-        headers: {
-          "Content-Type":
-            "application/json",
-
-          ...options.headers,
-        },
-
         ...options,
         credentials: "include",
         headers: {
