@@ -1,3 +1,4 @@
+from app.api.routers.recovery import router as recovery_router
 from app.api.routers.auth import (
     router as auth_router,
 )
@@ -61,7 +62,7 @@ app.add_middleware(
     allow_origins=(
         settings.cors_origins
     ),
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=[
         "GET",
         "POST",
@@ -89,3 +90,4 @@ app.include_router(
 app.include_router(
     models_router
 )
+app.include_router(recovery_router)
