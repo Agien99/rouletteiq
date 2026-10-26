@@ -220,4 +220,24 @@ ALTER TABLE public.sessions
 CREATE INDEX IF NOT EXISTS idx_sessions_user
     ON public.sessions(user_id);
 
+CREATE TABLE IF NOT EXISTS public.email_verification_tokens (
+ verification_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ user_id UUID NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
+ token_hash VARCHAR(64) NOT NULL UNIQUE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ expires_at TIMESTAMPTZ NOT NULL,
+ used_at TIMESTAMPTZ,
+ CHECK (expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS idx_email_verification_user ON public.email_verification_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS public.google_oauth_states (
+ state_hash VARCHAR(64) PRIMARY KEY,
+ code_verifier VARCHAR(128) NOT NULL,
+ nonce VARCHAR(128) NOT NULL,
+ invitation_hash VARCHAR(64),
+ expires_at TIMESTAMPTZ NOT NULL,
+ used_at TIMESTAMPTZ
+);
+
 COMMIT;

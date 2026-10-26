@@ -1,3 +1,6 @@
+from app.api.auth_guard import roulette_ownership_middleware
+from app.api.routers.account_security import router as security_router
+from app.api.routers.google_oauth import router as google_router
 from app.api.routers.recovery import router as recovery_router
 from app.api.routers.auth import (
     router as auth_router,
@@ -72,6 +75,8 @@ app.add_middleware(
 )
 
 
+app.middleware("http")(roulette_ownership_middleware)
+
 register_exception_handlers(app)
 
 
@@ -82,6 +87,8 @@ app.include_router(
 app.include_router(
     auth_router
 )
+app.include_router(security_router)
+app.include_router(google_router)
 
 app.include_router(
     sessions_router
