@@ -1,0 +1,117 @@
+﻿name: RouletteIQ Database Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-integration:
+    name: PostgreSQL Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: rouletteiq_test
+          POSTGRES_PASSWORD: rouletteiq_test_password
+          POSTGRES_DB: rouletteiq_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rouletteiq_test -d rouletteiq_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://rouletteiq_test:rouletteiq_test_password@127.0.0.1:5432/rouletteiq_test
+      RUN_NEON_INTEGRATION: "1"
+      PYTHONPATH: "."
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Initialize database schema
+        run: |
+          PGPASSWORD=rouletteiq_test_password \
+          psql \
+            -h 127.0.0.1 \
+            -p 5432 \
+            -U rouletteiq_test \
+            -d rouletteiq_test \
+            -v ON_ERROR_STOP=1 \
+            -f database/init.sql
+
+
+      - name: Verify authentication schema
+        env:
+          PGPASSWORD: rouletteiq_test_password
+        run: |
+          psql \
+            -h 127.0.0.1 \
+            -p 5432 \
+            -U rouletteiq_test \
+            -d rouletteiq_test \
+            -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+              v_table_name TEXT;
+          BEGIN
+              FOREACH v_table_name IN ARRAY ARRAY[
+                  'users',
+                  'auth_identities',
+                  'auth_sessions',
+                  'user_invitations',
+                  'password_reset_tokens'
+              ]
+              LOOP
+                  IF to_regclass(
+                      'public.' || v_table_name
+                  ) IS NULL THEN
+                      RAISE EXCEPTION
+                          'Missing table: %', v_table_name;
+                  END IF;
+              END LOOP;
+
+              IF NOT EXISTS (
+                  SELECT 1
+                  FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'sessions'
+                    AND column_name = 'user_id'
+              ) THEN
+                  RAISE EXCEPTION
+                      'Missing sessions.user_id column';
+              END IF;
+          END;
+          $$;
+          SQL
+
+      - name: Run database integration tests
+        run: |
+          python -m pytest \
+            tests/test_neon_integration.py \
+            tests/test_invitation_postgres.py \
+            -v
