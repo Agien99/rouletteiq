@@ -1,4 +1,4 @@
-"""Private roulette API: per-user authorization before every legacy handler.
+﻿"""Private roulette API: per-user authorization before every legacy handler.
 
 A request-scoped context value is set by the ASGI middleware, so existing
 synchronous repository functions inherit it through FastAPI's worker threads.
@@ -29,7 +29,7 @@ async def roulette_ownership_middleware(request: Request, call_next):
     if not protected or not is_production:
         return await call_next(request)
 
-    if path == '/models' or path.endswith(('/ml-performance', '/comparison', '/evaluation')):
+    if path == '/models' or path.endswith('/ml-performance'):
         from fastapi.responses import JSONResponse
         return JSONResponse({'detail': 'Model reporting not yet owner scoped.'}, status_code=503)
 
@@ -72,3 +72,4 @@ def legacy_roulette_gate():
     # Per-request auth lives in the middleware in production. Remains a no-op
     # in unit tests/development so existing isolated test cases still execute.
     return None
+
