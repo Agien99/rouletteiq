@@ -17,14 +17,15 @@ async function apiRequest(
     response = await fetch(
       `${apiConfig.baseUrl}${path}`,
       {
+        ...options,
+        credentials: "include",
         headers: {
-          "Content-Type":
-            "application/json",
-
+          "Content-Type": "application/json",
+          ...(document.cookie.split(";").map(x => x.trim()).find(x => x.startsWith("rouletteiq_csrf=")) ? {
+            "x-csrf-token": decodeURIComponent(document.cookie.split(";").map(x => x.trim()).find(x => x.startsWith("rouletteiq_csrf=")).slice("rouletteiq_csrf=".length))
+          } : {}),
           ...options.headers,
         },
-
-        ...options,
       }
     );
   } catch {

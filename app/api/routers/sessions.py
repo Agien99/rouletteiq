@@ -1,6 +1,8 @@
+from app.api.auth_guard import legacy_roulette_gate
 from uuid import UUID
 
 from fastapi import (
+    Depends,
     APIRouter,
     status,
 )
@@ -40,6 +42,7 @@ from app.api.reporting import (
 )
 
 router = APIRouter(
+    dependencies=[Depends(legacy_roulette_gate)],
     prefix="/sessions",
     tags=["Sessions"],
 )
