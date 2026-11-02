@@ -47,6 +47,37 @@ pytestmark = pytest.mark.skipif(
     ),
 )
 
+
+@pytest.fixture(autouse=True)
+def integration_session_owner():
+    from app.api.auth_guard import _current_user_id
+
+    user_id = str(uuid4())
+    email = f"integration-{uuid4().hex}@example.com"
+
+    DatabaseService.execute(
+        """
+        INSERT INTO public.users (
+            user_id, full_name, email,
+            role, is_active, email_verified_at
+        )
+        VALUES (%s, %s, %s, 'user', TRUE, NOW())
+        """,
+        (user_id, "Integration Test User", email),
+    )
+
+    token = _current_user_id.set(user_id)
+
+    try:
+        yield
+    finally:
+        _current_user_id.reset(token)
+        DatabaseService.execute(
+            "DELETE FROM public.users WHERE user_id = %s",
+            (user_id,),
+        )
+
+
 def cleanup_session(
     session_id: str,
 ) -> None:

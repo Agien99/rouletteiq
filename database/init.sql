@@ -217,6 +217,9 @@ ALTER TABLE public.sessions
     ADD COLUMN IF NOT EXISTS user_id UUID
         REFERENCES public.users(user_id);
 
+ALTER TABLE public.sessions
+    ALTER COLUMN user_id SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user
     ON public.sessions(user_id);
 
